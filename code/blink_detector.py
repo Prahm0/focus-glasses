@@ -1,1 +1,87 @@
-# Python script for webcam blink detection
+# Import necessary modules
+import cv2
+import mediapipe as mp
+import time
+
+# Set up MediaPipe Face Mesh
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(max_num_faces=1, refine_landmarks=True)
+LEFT_EYE = [33, 160, 158, 133, 153, 144]
+RIGHT_EYE = [263, 387, 385, 362, 373, 380]
+
+# Function to calculate eye aspect ratio
+# It calculates how open or closed the eye is based on the facial landmarks
+def eye_aspect_ratio(landmarks, eye_indices):
+    import math
+    def euclidean_dist(p1, p2): 
+        return math.hypot(p1[0] - p2[0], p1[1] - p2[1])
+    p1 = landmarks[eye_indices[1]]
+    p2 = landmarks[eye_indices[2]]
+    p3 = landmarks[eye_indices[5]]
+    p4 = landmarks[eye_indices[4]]
+    p5 = landmarks[eye_indices[0]]
+    p6 = landmarks[eye_indices[3]]
+
+    # A and B are vertical distaces between eyelid landmarks
+    # C is horizontal distance between eye corners
+    A = euclidean_dist(p2, p4)
+    B = euclidean_dist(p1, p3)
+    C = euclidean_dist(p5, p6)
+
+    ear = (A + B) / (2.0 * C) 
+    return ear
+
+def main():
+    cap = cv2.VideoCapture(0)
+    blink_count = 0
+    blink_start_time = time.time()
+    EAR_THRESHOLD = 0.3
+    CONSEC_FRAMES = 3
+    frame_counter = 0
+
+    while True: 
+        ret, frame = cap.read()
+        if not ret:
+            break
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = face_mesh.process(rgb_frame)
+
+        # Check if face is detected
+        if results.multi_face_landmarks: 
+            landmarks = results.multi_face_landmarks[0].landmark
+            h, w, _ = frame.shape
+            coords = [(int(lm.x * w), int(lm.y * h )) for lm in landmarks]
+
+            # Calculate EAR for both eyes and average
+            left_ear = eye_aspect_ratio(coords, LEFT_EYE)
+            right_ear = eye_aspect_ratio(coords, RIGHT_EYE)
+            ear = (left_ear + right_ear) / 2.0
+
+            # Detect blinks
+            if ear < EAR_THRESHOLD:
+                frame_counter += 1
+            else: 
+                if frame_counter >= CONSEC_FRAMES: 
+                    blink_count += 1
+                frame_counter = 0
+            
+            # Calculate blink rate per minute
+            elapsed_time = time.time() - blink_start_time
+            blink_rate = blink_count / elapsed_time * 60
+
+            # Display blink count and blink rate
+            cv2.putText(frame, f'Blinks: {blink_count}', (30, 50), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f'Blink Rate: {blink_rate:.2f} bpm', (30, 90), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            
+        # Show live video
+        cv2.imshow ('Blink Detector', frame)
+        if cv2.waitKey(1) & 0xFF == 27:
+            break
+    cap.release()
+    cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
+
+            
