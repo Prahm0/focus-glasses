@@ -1,7 +1,9 @@
+# This script detects blinks using MediaPipe Face Mesh and calculates the blink rate.
 # Import necessary modules
 import cv2
 import mediapipe as mp
 import time
+from focus_algorithm import assess_focus  # Importing the focus assessment function
 
 # Set up MediaPipe Face Mesh
 mp_face_mesh = mp.solutions.face_mesh
@@ -68,9 +70,12 @@ def main():
             # Calculate blink rate per minute
             elapsed_time = time.time() - blink_start_time
             blink_rate = blink_count / elapsed_time * 60
+            focus_status = assess_focus(blink_rate) # Asses focus based om blink rate
 
-            # Display blink count and blink rate
-            cv2.putText(frame, f'Blinks: {blink_count}', (30, 50), 
+            # Display blink count, blink rate & focused status on the frame
+            cv2.putText(frame, focus_status, (30, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f'Blinks: {blink_count}', (30, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame, f'Blink Rate: {blink_rate:.2f} bpm', (30, 90), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -83,5 +88,4 @@ def main():
     cv2.destroyAllWindows()
 if __name__ == "__main__":
     main()
-
-            
+    
