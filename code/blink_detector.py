@@ -70,10 +70,12 @@ def main():
             # Calculate blink rate per minute
             elapsed_time = time.time() - blink_start_time
             blink_rate = blink_count / elapsed_time * 60
-            focus_status = assess_focus(blink_rate) # Asses focus based om blink rate
+            focus_status, focus_score = assess_focus(blink_rate) # Asses focus based on blink rate
 
             # Display blink count, blink rate & focused status on the frame
             cv2.putText(frame, focus_status, (30, 30), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            cv2.putText(frame, f'Focus Score: {focus_score}/10', (30, 120),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame, f'Blinks: {blink_count}', (30, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
