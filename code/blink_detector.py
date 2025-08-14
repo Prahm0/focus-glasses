@@ -3,6 +3,7 @@
 import cv2
 import mediapipe as mp
 import time
+from collections import deque
 from focus_algorithm import assess_focus  # Importing the focus assessment function
 
 # Set up MediaPipe Face Mesh
@@ -12,7 +13,6 @@ LEFT_EYE = [33, 160, 158, 133, 153, 144]
 RIGHT_EYE = [263, 387, 385, 362, 373, 380]
 
 # Function to calculate eye aspect ratio
-# It calculates how open or closed the eye is based on the facial landmarks
 def eye_aspect_ratio(landmarks, eye_indices):
     import math
     def euclidean_dist(p1, p2): 
@@ -24,8 +24,6 @@ def eye_aspect_ratio(landmarks, eye_indices):
     p5 = landmarks[eye_indices[0]]
     p6 = landmarks[eye_indices[3]]
 
-    # A and B are vertical distaces between eyelid landmarks
-    # C is horizontal distance between eye corners
     A = euclidean_dist(p2, p4)
     B = euclidean_dist(p1, p3)
     C = euclidean_dist(p5, p6)
@@ -36,10 +34,13 @@ def eye_aspect_ratio(landmarks, eye_indices):
 def main():
     cap = cv2.VideoCapture(0)
     blink_count = 0
-    blink_start_time = time.time()
+    blink_timestamps = deque()
     EAR_THRESHOLD = 0.3
     CONSEC_FRAMES = 3
     frame_counter = 0
+    WINDOW_SECONDS = 60  # 1-minute sliding window
+
+    rate_history = deque(maxlen=5)  # optional smoothing
 
     while True: 
         ret, frame = cap.read()
@@ -65,29 +66,40 @@ def main():
             else: 
                 if frame_counter >= CONSEC_FRAMES: 
                     blink_count += 1
+                    blink_timestamps.append(time.time())
                 frame_counter = 0
             
-            # Calculate blink rate per minute
-            elapsed_time = time.time() - blink_start_time
-            blink_rate = blink_count / elapsed_time * 60
-            focus_status, focus_score = assess_focus(blink_rate) # Asses focus based on blink rate
+            # Remove blinks outside the window efficiently
+            now = time.time()
+            while blink_timestamps and now - blink_timestamps[0] > WINDOW_SECONDS:
+                blink_timestamps.popleft()
 
-            # Display blink count, blink rate & focused status on the frame
+            window_blink_count = len(blink_timestamps)
+            blink_rate = window_blink_count / (WINDOW_SECONDS / 60)  # blinks per minute
+
+            # Optional smoothing
+            rate_history.append(blink_rate)
+            smoothed_rate = sum(rate_history) / len(rate_history)
+
+            focus_status, focus_score = assess_focus(smoothed_rate)
+
+            # Display blink count, blink rate & focused status
             cv2.putText(frame, focus_status, (30, 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame, f'Focus Score: {focus_score}/10', (30, 120),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame, f'Blinks: {blink_count}', (30, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f'Blink Rate: {blink_rate:.2f} bpm', (30, 90), 
+            cv2.putText(frame, f'Blink Rate: {smoothed_rate:.2f} bpm', (30, 90), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             
         # Show live video
-        cv2.imshow ('Blink Detector', frame)
+        cv2.imshow('Blink Detector', frame)
         if cv2.waitKey(1) & 0xFF == 27:
             break
+
     cap.release()
     cv2.destroyAllWindows()
+
 if __name__ == "__main__":
     main()
-    
