@@ -101,9 +101,24 @@ def main():
 
             # Optional smoothing
             rate_history.append(blink_rate)
+           # After you calculate smoothed_rate
             smoothed_rate = sum(rate_history) / len(rate_history)
 
-            focus_status, focus_score = assess_focus(smoothed_rate)
+            # Compute focus_score from blink rate
+            def focus_score_from_blink_rate(blink_rate):
+                blink_rate = max(0, blink_rate)
+                if blink_rate <= 3: return 10
+                elif blink_rate <= 5: return 9
+                elif blink_rate <= 7: return 8
+                elif blink_rate <= 9: return 7
+                elif blink_rate <= 12: return 6
+                elif blink_rate <= 15: return 5
+                elif blink_rate <= 18: return 4
+                elif blink_rate <= 22: return 3
+                elif blink_rate <= 27: return 2
+                else: return 1
+
+            focus_score = focus_score_from_blink_rate(smoothed_rate)
 
             # In your main video loop
             if latest_attention is not None:
@@ -116,9 +131,10 @@ def main():
             else:
                 eeg_score = focus_score  # fallback purely blink-based
 
-
             # Weighted combined score: 70% EEG, 30% blink
             final_score = int(round(0.7 * eeg_score + 0.3 * focus_score))
+
+            focus_status, final_score = assess_focus(focus_score, eeg_score, final_score)
 
             print(f"Final Score (combined): {final_score} = 0.7*{eeg_score} + 0.3*{focus_score}")
 
