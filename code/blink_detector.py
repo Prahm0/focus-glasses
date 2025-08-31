@@ -22,6 +22,7 @@ def eeg_thread_func():
         if val is not None:
             latest_attention = val
 
+
 # start the thread
 threading.Thread(target=eeg_thread_func, daemon=True).start()
 
@@ -58,7 +59,7 @@ def main():
     EAR_THRESHOLD = 0.3
     CONSEC_FRAMES = 3
     frame_counter = 0
-    WINDOW_SECONDS = 20  # 20s sliding window
+    WINDOW_SECONDS = 40  # 40s sliding window
 
     rate_history = deque(maxlen=5)  # optional smoothing
 
@@ -96,7 +97,7 @@ def main():
                 blink_timestamps.popleft()
 
             window_blink_count = len(blink_timestamps)
-            blink_rate = window_blink_count / (WINDOW_SECONDS / 20)  # blinks per minute
+            blink_rate = window_blink_count / (WINDOW_SECONDS / 40)  # blinks per minute
 
             # Optional smoothing
             rate_history.append(blink_rate)
@@ -104,28 +105,21 @@ def main():
 
             focus_status, focus_score = assess_focus(smoothed_rate)
 
-            latest_attention = None  # global or outer-scope
-
-            # This could be a background thread or just a periodically called function
-            def update_eeg():
-                global latest_attention
-                val = next(eeg_generator)  # generator from EEGReader
-                if val is not None:
-                    latest_attention = val
-
             # In your main video loop
             if latest_attention is not None:
-                eeg_score = int(round(latest_attention / 10))
+                delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma = latest_attention[-8:]
+                
+                raw_focus = (low_beta + high_beta + low_gamma + middle_gamma) / (delta + theta + low_alpha + high_alpha + 1e-6)
+                eeg_score = int(round(min(10, max(0, raw_focus * 10))))  
+                
             else:
                 eeg_score = focus_score  # fallback purely blink-based
-
-            # Weighted combined score
-            final_score = int(round(0.7 * eeg_score + 0.3 * focus_score))
-
 
 
             # Weighted combined score: 70% EEG, 30% blink
             final_score = int(round(0.7 * eeg_score + 0.3 * focus_score))
+
+            print(f"Final Score (combined): {final_score} = 0.7*{eeg_score} + 0.3*{focus_score}")
 
             # Update display
             cv2.putText(frame, f'Final Score: {final_score}/10', (30, 150),

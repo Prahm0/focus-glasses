@@ -7,45 +7,51 @@ class EEGReader:
     def __init__(self, path, poll_interval=1.0):
         self.path = os.path.abspath(path)
         self.poll_interval = poll_interval
-        self._last_index = -1  # keeps track of last row read
 
-    def get_latest_attention(self):
-        """Return the latest attention value from EEG file if updated, else None."""
+    def get_latest_bands(self):
+        """Return the latest EEG bands if updated, else None."""
         if not os.path.exists(self.path):
             return None
         try:
-            df = pd.read_csv(self.path, engine="python")
+            # read CSV, skip first 4 rows (adjust as needed)
+            df = pd.read_csv(self.path, header=None, skiprows=4, engine="python", skip_blank_lines=True)
+
+            # Rename numeric columns to expected EEG band names
+            # Rename numeric columns to expected EEG band names
+            df.columns = ["Attention", "Meditation", "Delta", "Theta", "LowAlpha", "HighAlpha", "LowBeta",
+              "HighBeta", "LowGamma", "MiddleGamma"]
+
+            # Keep only relevant columns
+            df = df[["Delta", "Theta", "LowAlpha", "HighAlpha",
+                     "LowBeta", "HighBeta", "LowGamma", "MiddleGamma"]]
+
+            df = df.dropna(how="all")  # remove fully blank rows
             if df.empty:
                 return None
 
-            # Only process new row
-            latest_index = df.index[-1]
-            if latest_index == self._last_index:
-                return None  # no new row yet
-            self._last_index = latest_index
+            last_row = df.iloc[-1]      # last non-empty row
 
-            row = df.iloc[-1]
+            # Extract bands
+            # Extract bands and convert to float
+            delta        = float(last_row["Delta"])
+            theta        = float(last_row["Theta"])
+            low_alpha    = float(last_row["LowAlpha"])
+            high_alpha   = float(last_row["HighAlpha"])
+            low_beta     = float(last_row["LowBeta"])
+            high_beta    = float(last_row["HighBeta"])
+            low_gamma    = float(last_row["LowGamma"])
+            middle_gamma = float(last_row["MiddleGamma"])
 
-            # Try 'attention' column first
-            attention = row.get("attention", None)
-            if pd.isna(attention):
-                # fallback: compute from bands
-                low_beta = row.get("low_beta", 0.0)
-                high_beta = row.get("high_beta", 0.0)
-                low_alpha = row.get("low_alpha", 0.0)
-                high_alpha = row.get("high_alpha", 0.0)
-                ratio = (low_beta + high_beta) / max(low_alpha + high_alpha, 1e-6)
-                # map ratio 0->5 to 0->100
-                attention = min(100, max(0, (ratio/5.0)*100))
-            return float(attention)
+            return (delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma)
+
         except Exception as e:
             print("EEG read error:", e)
             return None
 
     def run_poll(self):
-        """Generator that yields new attention values as they come."""
+        """Generator that yields new EEG band values as they come."""
         while True:
-            val = self.get_latest_attention()
+            val = self.get_latest_bands()
             yield val
             time.sleep(self.poll_interval)
 
@@ -56,4 +62,4 @@ if __name__ == "__main__":
     print("Polling EEG file...")
     for val in reader.run_poll():
         if val is not None:
-            print("New attention:", val)
+            print("New EEG bands:", val)
