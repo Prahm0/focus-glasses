@@ -109,8 +109,9 @@ def main():
             if latest_attention is not None:
                 delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma = latest_attention[-8:]
                 
-                raw_focus = (low_beta + high_beta + low_gamma + middle_gamma) / (delta + theta + low_alpha + high_alpha + 1e-6)
-                eeg_score = int(round(min(10, max(0, raw_focus * 10))))  
+                raw_focus = (0.7*(low_beta + high_beta) + 0.3*(low_gamma + middle_gamma)) / (delta + theta + low_alpha + high_alpha + 1e-6)
+                eeg_score = int(round(min(10, max(0, raw_focus * 10))))  # scale factor reduced
+ 
                 
             else:
                 eeg_score = focus_score  # fallback purely blink-based
@@ -129,7 +130,7 @@ def main():
             # Display blink count, blink rate & focused status
             cv2.putText(frame, focus_status, (30, 30), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            cv2.putText(frame, f'Focus Score: {focus_score}/10', (30, 120),
+            cv2.putText(frame, f'Blink Focus: {focus_score}/10', (30, 120),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.putText(frame, f'Blinks: {blink_count}', (30, 60), 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
