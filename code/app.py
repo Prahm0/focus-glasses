@@ -2,7 +2,6 @@
 from flask import Flask, render_template, jsonify
 import pandas as pd
 import os
-from datetime import datetime
 
 app = Flask(__name__)
 
@@ -24,6 +23,7 @@ def data():
     df = read_log()
     if df.empty:
         return jsonify({"timestamps": [], "focus_scores": [], "eeg_scores": [], "final_scores": [], "statuses": []})
+
 
     return jsonify({
         "timestamps": df["timestamp"].tolist(),
