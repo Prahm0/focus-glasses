@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Focus Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    #status { font-size: 1.5em; margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <h1>Instant Focus Glasses Dashboard</h1>
+  <div id="status">Loading...</div>
+  <div style="margin-top:10px;">
+  <div style="width:100%;background:#eee;height:20px;border-radius:10px;">
+    <div id="focusBar" style="height:20px;width:0%;background:green;border-radius:10px;"></div>
+  </div>
+</div>
+
+  <canvas id="focusChart" width="800" height="400"></canvas>
+
+  <script>
+    const ctx = document.getElementById('focusChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: "Final Score", data: [], borderColor: "blue", fill: false },
+          { label: "EEG Score", data: [], borderColor: "green", fill: false },
+          { label: "Blink Score", data: [], borderColor: "orange", fill: false }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: {
+            y: { min: 0, max: 10 },
+            x: {
+            ticks: {
+                callback: function(value) {
+                const minutes = Math.floor(value / 60);
+                const seconds = Math.floor(value % 60);
+                return `${minutes}:${seconds.toString().padStart(2,'0')}`;
+                }
+            }
+            }
+        }
+        }
+
+    });
+
+    async function updateData() {
+      const res = await fetch("/data");
+      const d = await res.json();
+
+      if (d.timestamps.length > 0) {
+        // Calculate relative time in seconds from the first timestamp
+        const startTime = new Date(d.timestamps[0]).getTime();
+        const relativeTimes = d.timestamps.map(ts => (new Date(ts).getTime() - startTime) / 1000); // numbers in seconds
+        chart.data.labels = relativeTimes;
+        chart.data.datasets[0].data = d.final_scores;
+        chart.data.datasets[1].data = d.eeg_scores;
+        chart.data.datasets[2].data = d.focus_scores;
+        chart.update();
+
+        function getLevel(score) {
+            if (score >= 9) return "🏆 Expert Focus";
+            if (score >= 7) return "✨ Pro Focus";
+            if (score >= 5) return "🔹 Focused";
+            return "⚠️ Distracted";
+        }
+
+        function getColor(score) {
+            if (score >= 9) return "green";
+            if (score >= 7) return "blue";
+            if (score >= 5) return "orange";
+            return "red";
+        }
+
+        const lastStatus = d.statuses[d.statuses.length - 1];
+        const lastScore = d.final_scores[d.final_scores.length - 1];
+        document.getElementById("status").innerText =
+          `Current Status: ${lastStatus} (${lastScore}/10)`;
+      }
+    }
+
+    setInterval(updateData, 2000); // refresh every 2s
+    updateData();
+  </script>
+</body>
+</html>
