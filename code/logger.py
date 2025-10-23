@@ -14,6 +14,9 @@ class Logger:
             pass
 
     def log(self, focus_score, eeg_score, final_score, focus_status):
+        # Replace None EEG values with 0
+        if eeg_score is None:
+            eeg_score = 0
         now = datetime.now()
         if not self.last_logged_time or (now - self.last_logged_time).total_seconds() >= 5:
             with open(self.filename, 'a', newline='') as csvfile:

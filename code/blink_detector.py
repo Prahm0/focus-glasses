@@ -14,13 +14,16 @@ eeg_generator = eeg.run_poll()
 
 # global variable to hold the latest EEG value
 latest_attention = None
+last_eeg_time = 0
+EEG_TIMEOUT = 2  # seconds; adjust as needed
 
 # function that runs in a background thread
 def eeg_thread_func():
-    global latest_attention
+    global latest_attention, last_eeg_time
     for val in eeg.run_poll():
         if val is not None:
             latest_attention = val
+            last_eeg_time = time.time()
 
 
 # start the thread
@@ -71,6 +74,8 @@ def main():
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = face_mesh.process(rgb_frame)
 
+        current_time = time.time()  # <--- EEG timeout check reference
+
         # Check if face is detected
         if results.multi_face_landmarks: 
             landmarks = results.multi_face_landmarks[0].landmark
@@ -120,8 +125,11 @@ def main():
 
             focus_score = focus_score_from_blink_rate(smoothed_rate)
 
-            # In your main video loop
-            if latest_attention is not None:
+
+            # EEG timeout handling
+            if latest_attention is None or (current_time - last_eeg_time > EEG_TIMEOUT):
+                eeg_score = None  # fallback to blink detector if no recent EEG
+            else:
                 delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma = latest_attention[-8:]
 
                 # If all EEG values are zero, treat it as "no EEG signal"
@@ -132,8 +140,7 @@ def main():
                         delta + theta + low_alpha + high_alpha + 1e-6
                     )
                     eeg_score = int(round(min(10, max(0, raw_focus * 10))))  # scale to 0–10
-            else:
-                eeg_score = None  # no EEG data at all
+
 
             # Combine logic — if EEG missing or invalid, rely only on blink
             if eeg_score is None:
