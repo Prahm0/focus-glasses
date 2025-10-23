@@ -123,16 +123,24 @@ def main():
             # In your main video loop
             if latest_attention is not None:
                 delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma = latest_attention[-8:]
-                
-                raw_focus = (0.7*(low_beta + high_beta) + 0.3*(low_gamma + middle_gamma)) / (delta + theta + low_alpha + high_alpha + 1e-6)
-                eeg_score = int(round(min(10, max(0, raw_focus * 10))))  # scale factor reduced
- 
-                
-            else:
-                eeg_score = focus_score  # fallback purely blink-based
 
-            # Weighted combined score: 70% EEG, 30% blink
-            final_score = int(round(0.7 * eeg_score + 0.3 * focus_score))
+                # If all EEG values are zero, treat it as "no EEG signal"
+                if all(band == 0 for band in [delta, theta, low_alpha, high_alpha, low_beta, high_beta, low_gamma, middle_gamma]):
+                    eeg_score = None
+                else:
+                    raw_focus = (0.7 * (low_beta + high_beta) + 0.3 * (low_gamma + middle_gamma)) / (
+                        delta + theta + low_alpha + high_alpha + 1e-6
+                    )
+                    eeg_score = int(round(min(10, max(0, raw_focus * 10))))  # scale to 0–10
+            else:
+                eeg_score = None  # no EEG data at all
+
+            # Combine logic — if EEG missing or invalid, rely only on blink
+            if eeg_score is None:
+                final_score = focus_score
+            else:
+                final_score = int(round(0.7 * eeg_score + 0.3 * focus_score))
+
 
             focus_status, final_score = assess_focus(focus_score, eeg_score, final_score)
 

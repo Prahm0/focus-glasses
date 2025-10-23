@@ -6,7 +6,7 @@ current_sound = None
 last_distracted_played = 0
 
 # Load the buzzer sound seperately using Sound (not music)
-buzzer = pygame.mixer.Sound("sounds/buzzer.wav")
+buzzer = pygame.mixer.Sound("../sounds/buzzer.wav")
 buzzer.set_volume(1.0)
 
 def play_sound(path):
@@ -26,7 +26,7 @@ def stop_sound():
     current_sound = None
 
 def play_focused():
-    play_sound("sounds/bb.mp3")
+    play_sound("../sounds/bb.mp3")
 
 def play_distracted():
     global last_distracted_played
